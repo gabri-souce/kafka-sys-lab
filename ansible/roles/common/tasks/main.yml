@@ -36,23 +36,21 @@
     - { ip: '192.168.52.130', name: 'kafka-3' }
 
 # 4. SCENARIO RHCSA: Gestione Storage LVM su NVMe
-# Usiamo nvme0n2 come rilevato dal comando lsblk
 - name: Configurazione Storage LVM per Dati Kafka (Disco NVMe)
   block:
-    - name: Crea Physical Volume su /dev/nvme0n2
-      pvcreate:
-        device: /dev/nvme0n2
-
+    # Il modulo 'lvg' esegue internamente pvcreate se il disco non è inizializzato
     - name: Crea Volume Group 'vg_kafka'
       lvg:
         vg: vg_kafka
         pvs: /dev/nvme0n2
+        state: present
 
     - name: Crea Logical Volume 'lv_data'
       lvol:
         vg: vg_kafka
         lv: lv_data
         size: 100%FREE
+        state: present
 
     - name: Crea Filesystem XFS (Standard RHEL)
       filesystem:
@@ -73,7 +71,7 @@
         src: /dev/vg_kafka/lv_data
         fstype: xfs
         state: mounted
-  when: ansible_devices.nvme0n2 is defined  # Rileva automaticamente se il disco NVMe esiste
+  when: ansible_devices.nvme0n2 is defined
 
 # 5. Sicurezza di Rete: Firewall
 - name: Apri porte Kafka e ZooKeeper nel Firewall
