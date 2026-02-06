@@ -1,11 +1,23 @@
 ---
-- name: Crea directory dati Kafka
+# 1. Gestione Directory e Sicurezza SELinux (RHCSA)
+- name: Assicura che la directory dati Kafka abbia i permessi corretti
   file:
     path: "{{ kafka_data_dir }}"
     state: directory
     owner: "{{ kafka_user }}"
     group: "{{ kafka_user }}"
+    mode: '0755'
 
+- name: Imposta contesto SELinux per i dati Kafka (Persistenza su LVM)
+  sefcontext:
+    target: "{{ kafka_data_dir }}(/.*)?"
+    setype: var_lib_t
+    state: present
+
+- name: Applica contesto SELinux (restorecon)
+  command: "restorecon -Rv {{ kafka_data_dir }}"
+
+# 2. Configurazione Sicurezza SASL (Autenticazione)
 - name: Copia file JAAS per autenticazione SASL
   template:
     src: kafka_server_jaas.conf.j2
@@ -13,20 +25,21 @@
     owner: "{{ kafka_user }}"
     mode: '0600'
 
-- name: Copia credenziali per i client (Admin)
+- name: Copia credenziali per i client (Admin locale)
   template:
     src: client-admin.properties.j2
     dest: "{{ install_dir }}/config/client-admin.properties"
     owner: "{{ kafka_user }}"
-    mode: '0644'
+    mode: '0644' # kadmin deve poterlo leggere per l'health check via sudo
 
+# 3. Configurazione e Avvio Servizio
 - name: Copia configurazione server.properties
   template:
     src: server.properties.j2
     dest: "{{ install_dir }}/config/server.properties"
     owner: "{{ kafka_user }}"
 
-- name: Installa script di Health Check
+- name: Installa script di Health Check professionale (con retries)
   copy:
     src: kafka-health.sh
     dest: /usr/local/bin/kafka-health
@@ -38,10 +51,10 @@
     src: kafka.service.j2
     dest: /etc/systemd/system/kafka.service
 
-- name: Avvia o Riavvia Kafka
+- name: Avvia o Riavvia Kafka (Applica SASL/ACL)
   systemd:
     name: kafka
-    state: restarted # Usiamo restarted per assicurarci che carichi SASL
+    state: restarted
     enabled: yes
     daemon_reload: yes
 
@@ -51,7 +64,8 @@
     delay: 10
     timeout: 60
 
-- name: Gestione automatica dei Topic di produzione (SASL)
+# 4. Automazione Cluster: Gestione Topic (GitOps)
+- name: Creazione automatica dei Topic di produzione
   shell: |
     {{ install_dir }}/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
     --create --if-not-exists \
@@ -61,5 +75,23 @@
     --config retention.ms={{ item.retention_ms }} \
     --command-config {{ install_dir }}/config/client-admin.properties
   loop: "{{ kafka_topics_list }}"
+  run_once: true
+  delegate_to: "{{ groups['kafka_nodes'][0] }}"
+
+# 5. Automazione Cluster: Sicurezza Scalabile (ACL con Prefissi)
+- name: Configura ACL dinamiche con Prefisso (Scalabilità Prod)
+  shell: |
+    # Permessi di Scrittura per i Producer sul prefisso assegnato
+    {{ install_dir }}/bin/kafka-acls.sh --bootstrap-server localhost:9092 \
+    --command-config {{ install_dir }}/config/client-admin.properties \
+    --add --allow-principal User:{{ item.producer }} \
+    --operation Write --topic "{{ item.prefix }}" --resource-pattern-type prefixed
+    
+    # Permessi di Lettura per i Consumer sul prefisso assegnato
+    {{ install_dir }}/bin/kafka-acls.sh --bootstrap-server localhost:9092 \
+    --command-config {{ install_dir }}/config/client-admin.properties \
+    --add --allow-principal User:{{ item.consumer }} \
+    --operation Read --topic "{{ item.prefix }}" --resource-pattern-type prefixed
+  loop: "{{ kafka_acl_prefixes }}"
   run_once: true
   delegate_to: "{{ groups['kafka_nodes'][0] }}"

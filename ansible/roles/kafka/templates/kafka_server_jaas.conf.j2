@@ -1,7 +1,8 @@
 KafkaServer {
     org.apache.kafka.common.security.plain.PlainLoginModule required
-    username="admin"
-    password="admin-password"
-    user_admin="admin-password"
-    user_kadmin="admin-password";
+    username="{{ admin_user }}"
+    password="{{ admin_password }}"
+    user_{{ admin_user }}="{{ admin_password }}"
+    user_{{ producer_user }}="{{ producer_password }}"
+    user_{{ consumer_user }}="{{ consumer_password }}";
 };

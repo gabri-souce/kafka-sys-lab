@@ -1,9 +1,18 @@
 ---
-- name: Installa Java 17
+# 1. Installazione Pacchetti di Base e Tool di Sistema (RHCSA)
+- name: Installa Java 17 e tool di gestione sistema
   dnf:
-    name: "{{ java_package }}"
+    name:
+      - "{{ java_package }}"
+      - python3-firewall           # Per modulo firewalld
+      - policycoreutils-python-utils # Per modulo sefcontext (SELinux)
+      - python3-libselinux         # Supporto SELinux
+      - lvm2                       # Tool per gestione LVM (RHCSA)
+      - tar
+      - wget
     state: present
 
+# 2. Gestione Utente e Gruppo
 - name: Crea gruppo kafka
   group:
     name: "{{ kafka_user }}"
@@ -15,22 +24,8 @@
     group: "{{ kafka_user }}"
     shell: /bin/bash
 
-- name: Scarica e estrai Kafka (che include ZK)
-  unarchive:
-    src: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/{{ kafka_dist }}.tgz"
-    dest: /opt/
-    remote_src: yes
-    owner: "{{ kafka_user }}"
-    group: "{{ kafka_user }}"
-
-- name: Crea symlink per facilità d'uso
-  file:
-    src: "/opt/{{ kafka_dist }}"
-    dest: "{{ install_dir }}"
-    state: link
-    owner: "{{ kafka_user }}"
-
-- name: Configura /etc/hosts per la risoluzione dei nodi
+# 3. Rete e Risoluzione Nomi
+- name: Configura /etc/hosts per la risoluzione dei nodi del cluster
   lineinfile:
     path: /etc/hosts
     line: "{{ item.ip }} {{ item.name }}"
@@ -40,11 +35,47 @@
     - { ip: '192.168.52.129', name: 'kafka-2' }
     - { ip: '192.168.52.130', name: 'kafka-3' }
 
-- name: Installa supporto Python per gestione Firewall
-  dnf:
-    name: python3-firewall
-    state: present
+# 4. SCENARIO RHCSA: Gestione Storage LVM su NVMe
+# Usiamo nvme0n2 come rilevato dal comando lsblk
+- name: Configurazione Storage LVM per Dati Kafka (Disco NVMe)
+  block:
+    - name: Crea Physical Volume su /dev/nvme0n2
+      pvcreate:
+        device: /dev/nvme0n2
 
+    - name: Crea Volume Group 'vg_kafka'
+      lvg:
+        vg: vg_kafka
+        pvs: /dev/nvme0n2
+
+    - name: Crea Logical Volume 'lv_data'
+      lvol:
+        vg: vg_kafka
+        lv: lv_data
+        size: 100%FREE
+
+    - name: Crea Filesystem XFS (Standard RHEL)
+      filesystem:
+        fstype: xfs
+        dev: /dev/vg_kafka/lv_data
+
+    - name: Crea directory di mount per i dati
+      file:
+        path: "{{ kafka_data_dir }}"
+        state: directory
+        owner: "{{ kafka_user }}"
+        group: "{{ kafka_user }}"
+        mode: '0755'
+
+    - name: Monta il volume LVM permanentemente
+      mount:
+        path: "{{ kafka_data_dir }}"
+        src: /dev/vg_kafka/lv_data
+        fstype: xfs
+        state: mounted
+  when: ansible_devices.nvme0n2 is defined  # Rileva automaticamente se il disco NVMe esiste
+
+# 5. Sicurezza di Rete: Firewall
 - name: Apri porte Kafka e ZooKeeper nel Firewall
   firewalld:
     port: "{{ item }}"
@@ -57,10 +88,38 @@
     - 3888/tcp
     - 9092/tcp
 
-- name: Configura logrotate per i log di Kafka
+# 6. Installazione Software Kafka
+- name: Scarica e estrai Kafka (Binary)
+  unarchive:
+    src: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/{{ kafka_dist }}.tgz"
+    dest: /opt/
+    remote_src: yes
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
+
+- name: Crea symlink /opt/kafka
+  file:
+    src: "/opt/{{ kafka_dist }}"
+    dest: "{{ install_dir }}"
+    state: link
+    owner: "{{ kafka_user }}"
+
+# 7. Manutenzione e Sicurezza Log
+- name: Configura logrotate per la gestione dei log di Kafka
   copy:
     src: kafka-logrotate
     dest: /etc/logrotate.d/kafka
     owner: root
     group: root
     mode: '0644'
+
+# 8. Sicurezza del Sistema: SELinux (RHCSA Compliance)
+- name: Assicura che le directory di base abbiano il contesto SELinux corretto
+  sefcontext:
+    target: "/var/lib/zookeeper(/.*)?"
+    setype: var_lib_t
+    state: present
+
+- name: Applica contesto SELinux alla directory ZooKeeper
+  command: restorecon -Rv /var/lib/zookeeper
+  ignore_errors: yes

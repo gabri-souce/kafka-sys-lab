@@ -1,4 +1,7 @@
 ---
+# ───────────────────────────────────────────────────────────
+# VERSIONI E DISTRIBUZIONE
+# ───────────────────────────────────────────────────────────
 kafka_version: "3.7.0"
 scala_version: "2.13"
 kafka_dist: "kafka_{{ scala_version }}-{{ kafka_version }}"
@@ -6,14 +9,33 @@ install_dir: "/opt/kafka"
 kafka_user: "kafka"
 java_package: "java-17-openjdk-devel"
 
-# Percorsi dati
+# ───────────────────────────────────────────────────────────
+# PERCORSI DATI E STORAGE (LVM/RHCSA)
+# ───────────────────────────────────────────────────────────
+# Nota: kafka_data_dir verrà montata sul volume LVM /dev/nvme0n2
 zookeeper_data_dir: "/var/lib/zookeeper"
 kafka_data_dir: "/var/lib/kafka/data"
 
-# Lista dei broker per le configurazioni dinamiche
+# ───────────────────────────────────────────────────────────
+# NETWORKING E QUORUM
+# ───────────────────────────────────────────────────────────
 zookeeper_hosts: "kafka-1:2181,kafka-2:2181,kafka-3:2181"
 
-# Lista dei topic da mantenere nel cluster
+# ───────────────────────────────────────────────────────────
+# SICUREZZA SASL: CREDENZIALI (Utilizzate nei template JAAS)
+# ───────────────────────────────────────────────────────────
+admin_user: "admin"
+admin_password: "admin-password"
+
+producer_user: "producer"
+producer_password: "prod-pass"
+
+consumer_user: "consumer"
+consumer_password: "cons-pass"
+
+# ───────────────────────────────────────────────────────────
+# GESTIONE TOPIC (GITOPS)
+# ───────────────────────────────────────────────────────────
 kafka_topics_list:
   - name: "ordini-clienti"
     partitions: 3
@@ -21,3 +43,11 @@ kafka_topics_list:
   - name: "notifiche-app"
     partitions: 3
     retention_ms: "86400000"  # 1 giorno
+
+# ───────────────────────────────────────────────────────────
+# SICUREZZA SCALABILE: ACL CON PREFISSO
+# ───────────────────────────────────────────────────────────
+# Definisce i permessi per intere categorie di topic
+kafka_acl_prefixes:
+  - { prefix: 'ordini-', producer: 'producer', consumer: 'consumer' }
+  - { prefix: 'notifiche-', producer: 'producer', consumer: 'consumer' }
