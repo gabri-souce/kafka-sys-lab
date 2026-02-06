@@ -18,7 +18,7 @@
     src: client-admin.properties.j2
     dest: "{{ install_dir }}/config/client-admin.properties"
     owner: "{{ kafka_user }}"
-    mode: '0600'
+    mode: '0644'
 
 - name: Copia configurazione server.properties
   template:
