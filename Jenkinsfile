@@ -6,19 +6,30 @@ pipeline {
     stages {
         stage('Pull Code') {
             steps {
-                checkout scm // Jenkins scarica automaticamente il codice dal repo configurato
+                checkout scm
             }
         }
         stage('Deploy Infrastructure') {
             steps {
-                // Lanciamo il Playbook principale (site.yml)
                 sh 'ansible-playbook -i ansible/inventory.ini ansible/deploy_kafka.yml --private-key /var/jenkins_home/.ssh/id_rsa -u kadmin'
             }
         }
         stage('Verify Health') {
             steps {
-                // Eseguiamo lo script che abbiamo appena creato su uno dei nodi
-                sh 'ssh -i /var/jenkins_home/.ssh/id_rsa kadmin@192.168.52.128 "kafka-health"'
+                echo "Inizio verifica salute cluster su tutti i nodi..."
+                
+                // Definiamo gli IP dei nostri nodi
+                script {
+                    def nodes = ['192.168.52.128', '192.168.52.129', '192.168.52.130']
+                    
+                    for (node in nodes) {
+                        echo "Controllo nodo: ${node}"
+                        // Se uno di questi fallisce, l'intera pipeline diventerà rossa
+                        sh "ssh -o StrictHostKeyChecking=no -i /var/jenkins_home/.ssh/id_rsa kadmin@${node} '/usr/local/bin/kafka-health'"
+                    }
+                }
+                
+                echo "Tutti i nodi sono sani e registrati nel cluster!"
             }
         }
     }
