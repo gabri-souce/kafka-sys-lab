@@ -18,7 +18,7 @@ pipeline {
         stage('Verify Health') {
             steps {
                 // Eseguiamo lo script che abbiamo appena creato su uno dei nodi
-                sh 'ssh -i /var/jenkins_home/.ssh/id_rsa kadmin@kafka-1 "kafka-health"'
+                sh 'ssh -i /var/jenkins_home/.ssh/id_rsa kadmin@192.168.52.128 "kafka-health"'
             }
         }
     }
