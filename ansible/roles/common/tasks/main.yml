@@ -39,3 +39,20 @@
     - { ip: '192.168.52.128', name: 'kafka-1' }
     - { ip: '192.168.52.129', name: 'kafka-2' }
     - { ip: '192.168.52.130', name: 'kafka-3' }
+
+- name: Installa supporto Python per gestione Firewall
+  dnf:
+    name: python3-firewall
+    state: present
+
+- name: Apri porte Kafka e ZooKeeper nel Firewall
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - 2181/tcp
+    - 2888/tcp
+    - 3888/tcp
+    - 9092/tcp
