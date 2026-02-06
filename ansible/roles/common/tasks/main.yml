@@ -1,0 +1,41 @@
+---
+- name: Installa Java 17
+  dnf:
+    name: "{{ java_package }}"
+    state: present
+
+- name: Crea gruppo kafka
+  group:
+    name: "{{ kafka_user }}"
+    state: present
+
+- name: Crea utente kafka
+  user:
+    name: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
+    shell: /bin/bash
+
+- name: Scarica e estrai Kafka (che include ZK)
+  unarchive:
+    src: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/{{ kafka_dist }}.tgz"
+    dest: /opt/
+    remote_src: yes
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
+
+- name: Crea symlink per facilità d'uso
+  file:
+    src: "/opt/{{ kafka_dist }}"
+    dest: "{{ install_dir }}"
+    state: link
+    owner: "{{ kafka_user }}"
+
+- name: Configura /etc/hosts per la risoluzione dei nodi
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.name }}"
+    state: present
+  with_items:
+    - { ip: '192.168.52.128', name: 'kafka-1' }
+    - { ip: '192.168.52.129', name: 'kafka-2' }
+    - { ip: '192.168.52.130', name: 'kafka-3' }

@@ -1,0 +1,14 @@
+---
+kafka_version: "3.7.0"
+scala_version: "2.13"
+kafka_dist: "kafka_{{ scala_version }}-{{ kafka_version }}"
+install_dir: "/opt/kafka"
+kafka_user: "kafka"
+java_package: "java-17-openjdk-devel"
+
+# Percorsi dati
+zookeeper_data_dir: "/var/lib/zookeeper"
+kafka_data_dir: "/var/lib/kafka/data"
+
+# Lista dei broker per le configurazioni dinamiche
+zookeeper_hosts: "kafka-1:2181,kafka-2:2181,kafka-3:2181"

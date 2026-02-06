@@ -1,0 +1,8 @@
+---
+- name: Setup Cluster Kafka Professionale con Ruoli
+  hosts: kafka_nodes
+  become: yes
+  roles:
+    - common
+    - zookeeper
+    - kafka

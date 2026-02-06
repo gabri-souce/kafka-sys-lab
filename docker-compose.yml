@@ -1,0 +1,21 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    ports:
+      - "8080:8080"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - ./ansible:/ansible
+
+  ansible:
+    image: alpine:latest
+    container_name: ansible
+    tty: true
+    volumes:
+      - ./ansible:/ansible
+      - ~/.ssh:/root/.ssh:ro
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache ansible openssh-client && tail -f /dev/null"]
+
+volumes:
+  jenkins_data:

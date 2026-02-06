@@ -1,0 +1,14 @@
+[Unit]
+Description=Apache ZooKeeper
+After=network.target
+
+[Service]
+Type=simple
+User={{ kafka_user }}
+Group={{ kafka_user }}
+ExecStart={{ install_dir }}/bin/zookeeper-server-start.sh {{ install_dir }}/config/zookeeper.properties
+ExecStop={{ install_dir }}/bin/zookeeper-server-stop.sh
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

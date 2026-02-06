@@ -1,0 +1,32 @@
+---
+- name: Crea directory dati Kafka
+  file:
+    path: "{{ kafka_data_dir }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
+
+- name: Copia configurazione server.properties
+  template:
+    src: server.properties.j2
+    dest: "{{ install_dir }}/config/server.properties"
+    owner: "{{ kafka_user }}"
+
+- name: Installa script di Health Check
+  copy:
+    src: kafka-health.sh        # Cerca il file in roles/kafka/files/
+    dest: /usr/local/bin/kafka-health
+    mode: '0755'                # Rende lo script eseguibile
+    owner: root                 # Lo script deve essere leggibile da tutti
+
+- name: Crea Systemd Unit
+  template:
+    src: kafka.service.j2 # Dovrai creare questo template simile a quello di prima
+    dest: /etc/systemd/system/kafka.service
+
+- name: Avvia Kafka
+  systemd:
+    name: kafka
+    state: started
+    enabled: yes
+    daemon_reload: yes

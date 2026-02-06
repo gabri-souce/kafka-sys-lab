@@ -1,0 +1,31 @@
+---
+- name: Crea directory dati ZooKeeper
+  file:
+    path: "{{ zookeeper_data_dir }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
+
+- name: Configura myid (ID univoco ZK)
+  copy:
+    content: "{{ node_id }}"
+    dest: "{{ zookeeper_data_dir }}/myid"
+    owner: "{{ kafka_user }}"
+
+- name: Copia configurazione zookeeper.properties
+  template:
+    src: zookeeper.properties.j2
+    dest: "{{ install_dir }}/config/zookeeper.properties"
+    owner: "{{ kafka_user }}"
+
+- name: Crea Systemd Unit ZooKeeper
+  template:
+    src: zookeeper.service.j2 # Crea questo file simile a quello di kafka
+    dest: /etc/systemd/system/zookeeper.service
+
+- name: Avvia ZooKeeper
+  systemd:
+    name: zookeeper
+    state: started
+    enabled: yes
+    daemon_reload: yes
