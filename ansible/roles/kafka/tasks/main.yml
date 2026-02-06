@@ -6,6 +6,20 @@
     owner: "{{ kafka_user }}"
     group: "{{ kafka_user }}"
 
+- name: Copia file JAAS per autenticazione SASL
+  template:
+    src: kafka_server_jaas.conf.j2
+    dest: "{{ install_dir }}/config/kafka_server_jaas.conf"
+    owner: "{{ kafka_user }}"
+    mode: '0600'
+
+- name: Copia credenziali per i client (Admin)
+  template:
+    src: client-admin.properties.j2
+    dest: "{{ install_dir }}/config/client-admin.properties"
+    owner: "{{ kafka_user }}"
+    mode: '0600'
+
 - name: Copia configurazione server.properties
   template:
     src: server.properties.j2
@@ -14,19 +28,38 @@
 
 - name: Installa script di Health Check
   copy:
-    src: kafka-health.sh        # Cerca il file in roles/kafka/files/
+    src: kafka-health.sh
     dest: /usr/local/bin/kafka-health
-    mode: '0755'                # Rende lo script eseguibile
-    owner: root                 # Lo script deve essere leggibile da tutti
+    mode: '0755'
+    owner: root
 
-- name: Crea Systemd Unit
+- name: Crea Systemd Unit Kafka
   template:
-    src: kafka.service.j2 # Dovrai creare questo template simile a quello di prima
+    src: kafka.service.j2
     dest: /etc/systemd/system/kafka.service
 
-- name: Avvia Kafka
+- name: Avvia o Riavvia Kafka
   systemd:
     name: kafka
-    state: started
+    state: restarted # Usiamo restarted per assicurarci che carichi SASL
     enabled: yes
     daemon_reload: yes
+
+- name: Attendi che Kafka sia pronto (Porta 9092)
+  wait_for:
+    port: 9092
+    delay: 10
+    timeout: 60
+
+- name: Gestione automatica dei Topic di produzione (SASL)
+  shell: |
+    {{ install_dir }}/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+    --create --if-not-exists \
+    --topic {{ item.name }} \
+    --partitions {{ item.partitions }} \
+    --replication-factor 3 \
+    --config retention.ms={{ item.retention_ms }} \
+    --command-config {{ install_dir }}/config/client-admin.properties
+  loop: "{{ kafka_topics_list }}"
+  run_once: true
+  delegate_to: "{{ groups['kafka_nodes'][0] }}"

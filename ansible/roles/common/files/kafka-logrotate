@@ -1,0 +1,9 @@
+/opt/kafka/logs/*.log {
+    daily
+    rotate 7
+    compress
+    dateext
+    missingok
+    notifempty
+    copytruncate
+}

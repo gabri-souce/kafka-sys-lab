@@ -12,3 +12,12 @@ kafka_data_dir: "/var/lib/kafka/data"
 
 # Lista dei broker per le configurazioni dinamiche
 zookeeper_hosts: "kafka-1:2181,kafka-2:2181,kafka-3:2181"
+
+# Lista dei topic da mantenere nel cluster
+kafka_topics_list:
+  - name: "ordini-clienti"
+    partitions: 3
+    retention_ms: "604800000" # 7 giorni
+  - name: "notifiche-app"
+    partitions: 3
+    retention_ms: "86400000"  # 1 giorno

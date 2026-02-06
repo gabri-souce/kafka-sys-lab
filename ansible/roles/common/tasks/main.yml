@@ -56,3 +56,11 @@
     - 2888/tcp
     - 3888/tcp
     - 9092/tcp
+
+- name: Configura logrotate per i log di Kafka
+  copy:
+    src: kafka-logrotate
+    dest: /etc/logrotate.d/kafka
+    owner: root
+    group: root
+    mode: '0644'

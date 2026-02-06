@@ -1,6 +1,9 @@
 broker.id={{ node_id }}
-listeners=PLAINTEXT://:9092
-advertised.listeners=PLAINTEXT://{{ ansible_host }}:9092
+listeners=SASL_PLAINTEXT://:9092
+advertised.listeners=SASL_PLAINTEXT://{{ ansible_host }}:9092
+security.inter.broker.protocol=SASL_PLAINTEXT
+sasl.enabled.mechanisms=PLAIN
+sasl.mechanism.inter.broker.protocol=PLAIN
 num.network.threads=3
 num.io.threads=8
 socket.send.buffer.bytes=102400
